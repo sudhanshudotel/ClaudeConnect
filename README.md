@@ -13,7 +13,6 @@ ClaudeConnect is a bridge between **Claude Code** (running in VSCode) and **Slac
 - **Permission Control** — Allow or Deny tool executions from Slack with one click
 - **Live Output** — See everything Claude says, forwarded to your Slack channel in real-time
 - **Reply from Slack** — Respond to Claude via a Reply button (modal) or the `/cc` slash command
-- **Three Modes** — Switch between Ask Before Edits, Auto-Approve, and Plan Only from Slack
 - **Works Across Projects** — Hooks are global, so any Claude Code session routes through Slack
 - **Auto-Start** — Optional Windows startup script so the bridge runs automatically
 
@@ -99,15 +98,14 @@ You should see the Control Panel appear in your Slack channel.
 | Deny a tool | Click **Deny** on the permission message |
 | Reply to Claude | Click **Reply to Claude** button, type in the modal |
 | Quick reply | Type `/cc your message here` |
-| Switch to Ask mode | Click the mode button or type `/cc ask` |
-| Switch to Auto mode | Click the mode button or type `/cc auto` |
-| Switch to Plan mode | Click the mode button or type `/cc plan` |
 
 ### Modes
 
-- **Ask Before Edits** — Every tool use requires your approval via Slack. Default mode.
-- **Auto-Approve** — Tools execute immediately. Actions are logged to Slack for visibility.
-- **Plan Only** — All tools are denied. Claude describes what it would do without executing.
+Modes are controlled from **VSCode** (not Slack). Use Claude Code's built-in permission modes:
+
+- **Ask Before Edits** — Tool uses fire a PermissionRequest hook, and you approve/deny from Slack.
+- **Edit Automatically** — Tools execute immediately. Output is still logged to Slack.
+- **Plan Only** — Claude only describes what it would do.
 
 ## Project Structure
 
@@ -121,7 +119,6 @@ ClaudeConnect/
 │   ├── inject-input.ts     # PowerShell keyboard injection for replies
 │   ├── formatters.ts       # Slack Block Kit message formatting
 │   ├── types.ts            # TypeScript interfaces
-│   ├── mode-manager.ts     # Operating mode state
 │   └── pending-requests.ts # Async request tracking for permissions
 ├── claude-hooks/
 │   └── settings-snippet.json  # Hook config to merge into Claude Code settings

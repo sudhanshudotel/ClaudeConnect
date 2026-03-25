@@ -7,13 +7,10 @@ import {
   StopPayload,
   PermissionRequestResponse,
 } from "./types";
-import { getMode } from "./mode-manager";
 import { createPendingRequest, setSlackMessageTs } from "./pending-requests";
 import { postToSlack } from "./slack-app";
 import {
   formatPermissionRequest,
-  formatAutoLog,
-  formatPlanDenial,
   formatNotification,
   formatStopMessage,
 } from "./formatters";
@@ -23,49 +20,17 @@ app.use(express.json());
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", mode: getMode() });
+  res.json({ status: "ok" });
 });
 
 // --- Permission Request Hook ---
 app.post("/hooks/permission-request", async (req, res) => {
   try {
     const payload = req.body as PermissionRequestPayload;
-    const mode = getMode();
 
-    console.log(`[PermissionRequest] Tool: ${payload.tool_name} | Mode: ${mode}`);
+    console.log(`[PermissionRequest] Tool: ${payload.tool_name}`);
 
-    // Auto mode — approve immediately, log quietly
-    if (mode === "auto") {
-      const autoResponse: PermissionRequestResponse = {
-        hookSpecificOutput: {
-          hookEventName: "PermissionRequest",
-          decision: { behavior: "allow" },
-        },
-      };
-      // Fire-and-forget Slack log
-      postToSlack(formatAutoLog(payload), `Auto-approved: ${payload.tool_name}`);
-      res.json(autoResponse);
-      return;
-    }
-
-    // Plan mode — deny with instruction to describe instead
-    if (mode === "plan") {
-      const planResponse: PermissionRequestResponse = {
-        hookSpecificOutput: {
-          hookEventName: "PermissionRequest",
-          decision: {
-            behavior: "deny",
-            message:
-              "User is in plan-only mode via Slack. Do NOT execute this action. Instead, describe what you would do and why, then wait for further instructions.",
-          },
-        },
-      };
-      postToSlack(formatPlanDenial(payload), `Plan mode denied: ${payload.tool_name}`);
-      res.json(planResponse);
-      return;
-    }
-
-    // Ask mode — post to Slack, wait for user response
+    // Post to Slack, wait for user response
     const requestId = uuidv4();
     const blocks = formatPermissionRequest(payload, requestId);
 
@@ -117,7 +82,6 @@ app.post("/hooks/stop", async (req, res) => {
     console.log(`[Stop] Question detected: ${isQuestion}`);
 
     if (isQuestion) {
-      // Post question to Slack, return immediately (don't block Claude Code)
       const requestId = uuidv4();
       const blocks = formatStopMessage(payload, requestId, true);
 
@@ -126,10 +90,8 @@ app.post("/hooks/stop", async (req, res) => {
         `Claude asks: ${message.slice(0, 200)}`
       );
 
-      // Return immediately — reply will come via keyboard injection
       res.json({});
     } else {
-      // Not a question — just log completion and return immediately
       const requestId = uuidv4();
       postToSlack(
         formatStopMessage(payload, requestId, false),
@@ -147,13 +109,10 @@ app.post("/hooks/stop", async (req, res) => {
 function detectQuestion(message: string): boolean {
   if (!message) return false;
 
-  // Check the last ~500 chars for question patterns
   const tail = message.slice(-500).toLowerCase();
 
-  // Ends with question mark
   if (/\?\s*$/.test(tail)) return true;
 
-  // Common question phrases
   const questionPhrases = [
     "would you like",
     "should i",

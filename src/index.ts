@@ -21,7 +21,7 @@ async function main() {
   console.log(" ClaudeConnect is running!");
   console.log(` Bridge: http://localhost:${config.BRIDGE_PORT}`);
   console.log(` Slack channel: ${config.SLACK_CHANNEL_ID}`);
-  console.log(" Mode: Ask Before Edits (default)");
+  console.log(" Mode: Controlled by VSCode");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("\nWaiting for Claude Code hook events...\n");
 }

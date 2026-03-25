@@ -1,12 +1,9 @@
 import { App, LogLevel } from "@slack/bolt";
 import { config } from "./config";
-import { Mode, MODE_LABELS, MODE_DESCRIPTIONS, PermissionRequestResponse } from "./types";
-import { getMode, setMode } from "./mode-manager";
+import { PermissionRequestResponse } from "./types";
 import { resolvePendingRequest } from "./pending-requests";
-import { formatControlPanel, formatPermissionResolved } from "./formatters";
+import { formatPermissionResolved } from "./formatters";
 import { injectTextToVSCode } from "./inject-input";
-
-let controlPanelTs: string | undefined;
 
 export const slackApp = new App({
   token: config.SLACK_BOT_TOKEN,
@@ -86,17 +83,6 @@ slackApp.action("permission_deny", async ({ action, ack, respond, body }) => {
   }
 });
 
-// --- Mode switcher button handlers ---
-
-for (const mode of ["ask", "auto", "plan"] as Mode[]) {
-  slackApp.action(`mode_${mode}`, async ({ ack }) => {
-    await ack();
-    setMode(mode);
-    await updateControlPanel();
-    await postModeChangeNotification(mode);
-  });
-}
-
 // --- Reply modal button handler ---
 
 slackApp.action("open_reply_modal", async ({ action, ack, body, client }) => {
@@ -141,7 +127,6 @@ slackApp.view("reply_modal_submit", async ({ ack, view, body }) => {
 
   console.log(`[Reply] Injecting text from ${userName}: ${userResponse}`);
 
-  // Inject the reply directly into VSCode via keyboard simulation
   const success = await injectTextToVSCode(userResponse);
 
   if (success) {
@@ -188,15 +173,6 @@ slackApp.command("/cc", async ({ command, ack }) => {
     return;
   }
 
-  // Mode shortcuts via slash command
-  if (text === "ask" || text === "auto" || text === "plan") {
-    const mode = text as Mode;
-    setMode(mode);
-    await updateControlPanel();
-    await postModeChangeNotification(mode);
-    return;
-  }
-
   console.log(`[/cc] Injecting text from ${userName}: ${text}`);
 
   const success = await injectTextToVSCode(text);
@@ -214,50 +190,30 @@ slackApp.command("/cc", async ({ command, ack }) => {
   }
 });
 
-// --- Control Panel ---
+// --- Startup message ---
 
 export async function postControlPanel(): Promise<void> {
   try {
-    const result = await slackApp.client.chat.postMessage({
+    await slackApp.client.chat.postMessage({
       channel: config.SLACK_CHANNEL_ID,
-      blocks: formatControlPanel(getMode()),
-      text: `ClaudeConnect Control Panel — Mode: ${MODE_LABELS[getMode()]}`,
+      blocks: [
+        {
+          type: "header",
+          text: { type: "plain_text", text: "🎛️ ClaudeConnect is running", emoji: true },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: "Permission requests will appear here. Use `/cc your message` to reply to Claude.",
+          },
+        },
+      ],
+      text: "ClaudeConnect is running",
     });
-    controlPanelTs = result.ts;
     console.log("Control panel posted to Slack");
   } catch (err) {
     console.error("Failed to post control panel:", err);
-  }
-}
-
-async function updateControlPanel(): Promise<void> {
-  if (!controlPanelTs) {
-    await postControlPanel();
-    return;
-  }
-
-  try {
-    await slackApp.client.chat.update({
-      channel: config.SLACK_CHANNEL_ID,
-      ts: controlPanelTs,
-      blocks: formatControlPanel(getMode()),
-      text: `ClaudeConnect Control Panel — Mode: ${MODE_LABELS[getMode()]}`,
-    });
-  } catch {
-    // If update fails (message too old), post a new one
-    await postControlPanel();
-  }
-}
-
-async function postModeChangeNotification(mode: Mode): Promise<void> {
-  try {
-    await slackApp.client.chat.postMessage({
-      channel: config.SLACK_CHANNEL_ID,
-      text: `Mode switched to *${MODE_LABELS[mode]}* — ${MODE_DESCRIPTIONS[mode]}`,
-      mrkdwn: true,
-    });
-  } catch (err) {
-    console.error("Failed to post mode change notification:", err);
   }
 }
 

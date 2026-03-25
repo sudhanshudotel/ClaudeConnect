@@ -54,18 +54,3 @@ export interface PendingRequest {
   slackChannelId?: string;
   createdAt: number;
 }
-
-// Operating modes
-export type Mode = "ask" | "auto" | "plan";
-
-export const MODE_LABELS: Record<Mode, string> = {
-  ask: "Ask Before Edits",
-  auto: "Auto-Approve",
-  plan: "Plan Only",
-};
-
-export const MODE_DESCRIPTIONS: Record<Mode, string> = {
-  ask: "Claude will ask for permission before each action. You approve/deny via Slack.",
-  auto: "Claude will execute automatically. Actions are logged to Slack for visibility.",
-  plan: "Claude will only describe what it would do, without executing anything.",
-};

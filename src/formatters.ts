@@ -1,5 +1,5 @@
 import type { KnownBlock, Block } from "@slack/types";
-import { PermissionRequestPayload, NotificationPayload, StopPayload, Mode, MODE_LABELS } from "./types";
+import { PermissionRequestPayload, NotificationPayload, StopPayload } from "./types";
 
 const MAX_TEXT_LENGTH = 2500;
 
@@ -87,42 +87,6 @@ export function formatPermissionRequest(
   ];
 }
 
-/** Auto-mode quiet log message */
-export function formatAutoLog(payload: PermissionRequestPayload): (KnownBlock | Block)[] {
-  const inputSummary = formatToolInput(payload.tool_name, payload.tool_input);
-  return [
-    {
-      type: "context",
-      elements: [
-        {
-          type: "mrkdwn",
-          text: `⚡ Auto-approved *${payload.tool_name}*: \`${truncate(inputSummary, 200)}\` _(session: ${shortSessionId(payload.session_id)})_`,
-        },
-      ],
-    },
-  ];
-}
-
-/** Plan-mode denial log */
-export function formatPlanDenial(payload: PermissionRequestPayload): (KnownBlock | Block)[] {
-  const inputSummary = formatToolInput(payload.tool_name, payload.tool_input);
-  return [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `📋 *Plan mode* — denied *${payload.tool_name}*\n\`\`\`${truncate(inputSummary, 500)}\`\`\``,
-      },
-    },
-    {
-      type: "context",
-      elements: [
-        { type: "mrkdwn", text: `Session: \`${shortSessionId(payload.session_id)}\`` },
-      ],
-    },
-  ];
-}
-
 /** Notification → Slack blocks */
 export function formatNotification(payload: NotificationPayload): (KnownBlock | Block)[] {
   return [
@@ -181,54 +145,6 @@ export function formatStopMessage(
   });
 
   return blocks;
-}
-
-/** Control panel with mode buttons */
-export function formatControlPanel(activeMode: Mode): (KnownBlock | Block)[] {
-  const modeButton = (mode: Mode, emoji: string) => {
-    const isActive = mode === activeMode;
-    return {
-      type: "button" as const,
-      text: {
-        type: "plain_text" as const,
-        text: `${emoji} ${MODE_LABELS[mode]}${isActive ? " ●" : ""}`,
-        emoji: true,
-      },
-      action_id: `mode_${mode}`,
-      ...(isActive ? { style: "primary" as const } : {}),
-    };
-  };
-
-  return [
-    {
-      type: "header",
-      text: { type: "plain_text", text: "🎛️ ClaudeConnect Control Panel", emoji: true },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `Current mode: *${MODE_LABELS[activeMode]}*`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        modeButton("ask", "🔒"),
-        modeButton("auto", "⚡"),
-        modeButton("plan", "📋"),
-      ],
-    },
-    {
-      type: "context",
-      elements: [
-        {
-          type: "mrkdwn",
-          text: "You can also type `!ask`, `!auto`, or `!plan` to switch modes",
-        },
-      ],
-    },
-  ];
 }
 
 /** Updated permission message after user responds */

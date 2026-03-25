@@ -55,7 +55,7 @@ Socket Mode lets the app receive events via WebSocket (no public URL needed).
 
 ## Step 5: Enable Interactivity
 
-This lets the app receive button clicks (Allow/Deny, mode switches).
+This lets the app receive button clicks (Allow/Deny permissions).
 
 1. In the left sidebar, click **"Interactivity & Shortcuts"**
 2. Toggle **"Interactivity"** to ON
@@ -131,7 +131,7 @@ This lets you reply to Claude from Slack by typing `/cc your message`.
    ClaudeConnect is running!
    ```
 
-5. Check the #claude-connect channel — you should see the **Control Panel** message with mode buttons.
+5. Check the #claude-connect channel — you should see the startup message confirming ClaudeConnect is running.
 
 ---
 
