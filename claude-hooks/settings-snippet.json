@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:3456/hooks/permission-request",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:3456/hooks/notification",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:3456/hooks/stop",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
