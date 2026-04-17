@@ -1,7 +1,8 @@
-import type { KnownBlock, Block } from "@slack/types";
-import { PermissionRequestPayload, NotificationPayload, StopPayload } from "./types";
+import { Markup } from "telegraf";
+import { InlineKeyboardMarkup } from "telegraf/types";
+import { HookPayloadBase, PermissionRequestPayload, NotificationPayload, StopPayload } from "./types";
 
-const MAX_TEXT_LENGTH = 2500;
+const MAX_TEXT_LENGTH = 3500; // Telegram limit is ~4096
 
 function truncate(text: string, max = MAX_TEXT_LENGTH): string {
   if (text.length <= max) return text;
@@ -10,6 +11,34 @@ function truncate(text: string, max = MAX_TEXT_LENGTH): string {
 
 function shortSessionId(sessionId: string): string {
   return sessionId.slice(-6);
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function projectName(cwd?: string): string {
+  if (!cwd) return "unknown";
+  const parts = cwd.replace(/\\/g, "/").split("/").filter(Boolean);
+  return parts[parts.length - 1] || "unknown";
+}
+
+function currentTime(): string {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function subtitle(payload: HookPayloadBase): string {
+  return `<i>📁 ${escapeHtml(projectName(payload.cwd))}  ·  🕒 ${currentTime()}  ·  #${shortSessionId(payload.session_id)}</i>`;
+}
+
+function expandable(content: string): string {
+  return `<blockquote expandable>${content}</blockquote>`;
 }
 
 /** Format the tool input for display based on tool type */
@@ -33,135 +62,62 @@ function formatToolInput(toolName: string, toolInput: Record<string, unknown>): 
   return truncate(JSON.stringify(toolInput, null, 2));
 }
 
-/** Permission request → Slack blocks with Allow/Deny buttons */
+export interface FormattedTelegramMessage {
+  text: string;
+  reply_markup?: InlineKeyboardMarkup;
+}
+
+/** Permission request → Telegram HTML with Allow/Deny buttons */
 export function formatPermissionRequest(
   payload: PermissionRequestPayload,
   requestId: string
-): (KnownBlock | Block)[] {
+): FormattedTelegramMessage {
   const inputText = formatToolInput(payload.tool_name, payload.tool_input);
+  
+  const text = `🔒 <b>Permission  ·  ${escapeHtml(payload.tool_name)}</b>
+${subtitle(payload)}
 
-  return [
-    {
-      type: "header",
-      text: { type: "plain_text", text: `🔒 Permission Request`, emoji: true },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `Claude wants to use *${payload.tool_name}*`,
-      },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `\`\`\`${truncate(inputText)}\`\`\``,
-      },
-    },
-    {
-      type: "context",
-      elements: [
-        { type: "mrkdwn", text: `Session: \`${shortSessionId(payload.session_id)}\`` },
-      ],
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "✅ Allow", emoji: true },
-          style: "primary",
-          action_id: "permission_allow",
-          value: requestId,
-        },
-        {
-          type: "button",
-          text: { type: "plain_text", text: "❌ Deny", emoji: true },
-          style: "danger",
-          action_id: "permission_deny",
-          value: requestId,
-        },
-      ],
-    },
-  ];
+${expandable(`<pre>${escapeHtml(truncate(inputText))}</pre>`)}`;
+
+  const reply_markup = Markup.inlineKeyboard([
+    Markup.button.callback("✅ Allow", `allow:${requestId}`),
+    Markup.button.callback("❌ Deny", `deny:${requestId}`)
+  ]).reply_markup;
+
+  return { text, reply_markup };
 }
 
-/** Notification → Slack blocks */
-export function formatNotification(payload: NotificationPayload): (KnownBlock | Block)[] {
-  return [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `🔔 *Notification* (${payload.notification_type || "info"})\n${payload.message || "Claude needs your attention."}`,
-      },
-    },
-    {
-      type: "context",
-      elements: [
-        { type: "mrkdwn", text: `Session: \`${shortSessionId(payload.session_id)}\`` },
-      ],
-    },
-  ];
+/** Notification → Telegram HTML */
+export function formatNotification(payload: NotificationPayload): FormattedTelegramMessage {
+  const text = `🔔 <b>Notification  ·  ${escapeHtml(payload.notification_type || "info")}</b>
+${subtitle(payload)}
+
+${escapeHtml(payload.message || "Claude needs your attention.")}`;
+
+  return { text };
 }
 
-/** Stop hook → Slack blocks (shows Claude's last message, prompts for reply if question) */
+/** Stop hook → Telegram HTML */
 export function formatStopMessage(
   payload: StopPayload,
-  requestId: string,
   isQuestion: boolean
-): (KnownBlock | Block)[] {
+): FormattedTelegramMessage {
   const message = payload.last_assistant_message || "(no message)";
-  const blocks: (KnownBlock | Block)[] = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: isQuestion
-          ? `❓ *Claude is asking:*\n${truncate(message, 2000)}`
-          : `✅ *Claude finished:*\n${truncate(message, 2000)}`,
-      },
-    },
-    {
-      type: "context",
-      elements: [
-        { type: "mrkdwn", text: `Session: \`${shortSessionId(payload.session_id)}\`` },
-      ],
-    },
-  ];
 
-  blocks.push({
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: { type: "plain_text", text: "💬 Reply to Claude", emoji: true },
-        ...(isQuestion ? { style: "primary" as const } : {}),
-        action_id: "open_reply_modal",
-        value: requestId,
-      },
-    ],
-  });
+  const body = expandable(escapeHtml(truncate(message, 3000)));
+  const title = isQuestion ? "❓ <b>Claude is asking</b>" : "✅ <b>Claude finished</b>";
 
-  return blocks;
+  const text = `${title}\n${subtitle(payload)}\n\n${body}`;
+
+  return { text };
 }
 
-/** Updated permission message after user responds */
-export function formatPermissionResolved(
-  toolName: string,
+/** One-line resolution suffix appended to a permission message after the user responds */
+export function formatResolutionSuffix(
   decision: "allow" | "deny",
   userName: string
-): (KnownBlock | Block)[] {
+): string {
   const emoji = decision === "allow" ? "✅" : "❌";
   const verb = decision === "allow" ? "Approved" : "Denied";
-  return [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${emoji} *${toolName}* — ${verb} by ${userName}`,
-      },
-    },
-  ];
+  return `${emoji} <b>${verb}</b> by ${escapeHtml(userName)}  ·  🕒 ${currentTime()}`;
 }

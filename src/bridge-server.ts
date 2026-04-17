@@ -5,10 +5,9 @@ import {
   PermissionRequestPayload,
   NotificationPayload,
   StopPayload,
-  PermissionRequestResponse,
 } from "./types";
-import { createPendingRequest, setSlackMessageTs } from "./pending-requests";
-import { postToSlack } from "./slack-app";
+import { createPendingRequest, setTelegramMessageId } from "./pending-requests";
+import { postToTelegram } from "./telegram-app";
 import {
   formatPermissionRequest,
   formatNotification,
@@ -18,51 +17,40 @@ import {
 export const app = express();
 app.use(express.json());
 
-// Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// --- Permission Request Hook ---
+// --- Permission Request ---
 app.post("/hooks/permission-request", async (req, res) => {
   try {
     const payload = req.body as PermissionRequestPayload;
-
     console.log(`[PermissionRequest] Tool: ${payload.tool_name}`);
 
-    // Post to Slack, wait for user response
     const requestId = uuidv4();
-    const blocks = formatPermissionRequest(payload, requestId);
+    const formatted = formatPermissionRequest(payload, requestId);
+    const messageId = await postToTelegram(formatted);
 
-    const messageTs = await postToSlack(
-      blocks,
-      `Permission request: ${payload.tool_name}`
-    );
-
-    if (messageTs) {
-      setSlackMessageTs(requestId, messageTs, config.SLACK_CHANNEL_ID);
+    if (messageId) {
+      setTelegramMessageId(requestId, messageId, config.TELEGRAM_CHAT_ID);
     }
 
-    // Hold HTTP connection open until Slack user responds or timeout
+    // Hold the HTTP connection open until Telegram user responds (or timeout).
     const response = await createPendingRequest(requestId, "PermissionRequest");
     res.json(response);
   } catch (err) {
     console.error("[PermissionRequest] Error:", err);
-    res.json({}); // Never block Claude
+    res.json({}); // Never block Claude on bridge errors.
   }
 });
 
-// --- Notification Hook ---
+// --- Notification ---
 app.post("/hooks/notification", async (req, res) => {
   try {
     const payload = req.body as NotificationPayload;
     console.log(`[Notification] Type: ${payload.notification_type || "unknown"}`);
 
-    await postToSlack(
-      formatNotification(payload),
-      `Notification: ${payload.message || "Claude needs attention"}`
-    );
-
+    await postToTelegram(formatNotification(payload));
     res.json({});
   } catch (err) {
     console.error("[Notification] Error:", err);
@@ -70,47 +58,28 @@ app.post("/hooks/notification", async (req, res) => {
   }
 });
 
-// --- Stop Hook ---
+// --- Stop ---
 app.post("/hooks/stop", async (req, res) => {
   try {
     const payload = req.body as StopPayload;
     const message = payload.last_assistant_message || "";
-
-    // Heuristic: detect if Claude is asking a question
     const isQuestion = detectQuestion(message);
 
     console.log(`[Stop] Question detected: ${isQuestion}`);
 
-    if (isQuestion) {
-      const requestId = uuidv4();
-      const blocks = formatStopMessage(payload, requestId, true);
-
-      postToSlack(
-        blocks,
-        `Claude asks: ${message.slice(0, 200)}`
-      );
-
-      res.json({});
-    } else {
-      const requestId = uuidv4();
-      postToSlack(
-        formatStopMessage(payload, requestId, false),
-        `Claude finished: ${message.slice(0, 200)}`
-      );
-      res.json({});
-    }
+    await postToTelegram(formatStopMessage(payload, isQuestion));
+    res.json({});
   } catch (err) {
     console.error("[Stop] Error:", err);
     res.json({});
   }
 });
 
-/** Simple heuristic to detect if Claude is asking a question */
+/** Heuristic — does Claude's last message end in a question or a prompt for user input? */
 function detectQuestion(message: string): boolean {
   if (!message) return false;
 
   const tail = message.slice(-500).toLowerCase();
-
   if (/\?\s*$/.test(tail)) return true;
 
   const questionPhrases = [

@@ -50,7 +50,7 @@ export interface PendingRequest {
   resolve: (response: unknown) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
-  slackMessageTs?: string;
-  slackChannelId?: string;
+  telegramMessageId?: number;
+  telegramChatId?: string | number;
   createdAt: number;
 }

@@ -5,7 +5,7 @@ const pendingRequests = new Map<string, PendingRequest>();
 
 /**
  * Creates a pending request and returns a promise that resolves when
- * the Slack user responds (or rejects on timeout).
+ * the Telegram user responds (or rejects on timeout).
  * The Express route handler awaits this promise, keeping the HTTP connection open.
  */
 export function createPendingRequest(id: string, hookEventName: string): Promise<unknown> {
@@ -32,7 +32,7 @@ export function createPendingRequest(id: string, hookEventName: string): Promise
 
 /**
  * Resolves a pending request with the given data.
- * Called by Slack action handlers when the user clicks a button or sends a reply.
+ * Called by Telegram action handlers when the user clicks a button or sends a reply.
  */
 export function resolvePendingRequest(id: string, data: unknown): boolean {
   const request = pendingRequests.get(id);
@@ -47,14 +47,14 @@ export function resolvePendingRequest(id: string, data: unknown): boolean {
 }
 
 /**
- * Updates the Slack message timestamp for a pending request
+ * Updates the Telegram message ID for a pending request
  * (used to update the message after the user responds).
  */
-export function setSlackMessageTs(id: string, ts: string, channelId: string): void {
+export function setTelegramMessageId(id: string, messageId: number, chatId: string | number): void {
   const request = pendingRequests.get(id);
   if (request) {
-    request.slackMessageTs = ts;
-    request.slackChannelId = channelId;
+    request.telegramMessageId = messageId;
+    request.telegramChatId = chatId;
   }
 }
 

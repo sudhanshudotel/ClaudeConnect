@@ -1,21 +1,27 @@
 {
   "name": "claudeconnect",
   "version": "1.0.0",
-  "description": "Bridge between Claude Code and Slack — control Claude from your phone",
+  "description": "Bridge between Claude Code and Telegram — control Claude from your phone",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
-  "keywords": ["claude", "slack", "bridge"],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "telegram",
+    "bridge",
+    "hooks"
+  ],
+  "author": "sudhanshudotel",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@slack/bolt": "^4.6.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "telegraf": "^4.16.3",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

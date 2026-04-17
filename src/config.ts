@@ -14,9 +14,8 @@ function requireEnv(name: string): string {
 }
 
 export const config = {
-  SLACK_BOT_TOKEN: requireEnv("SLACK_BOT_TOKEN"),
-  SLACK_APP_TOKEN: requireEnv("SLACK_APP_TOKEN"),
-  SLACK_CHANNEL_ID: requireEnv("SLACK_CHANNEL_ID"),
+  TELEGRAM_BOT_TOKEN: requireEnv("TELEGRAM_BOT_TOKEN"),
+  TELEGRAM_CHAT_ID: requireEnv("TELEGRAM_CHAT_ID"),
   BRIDGE_PORT: parseInt(process.env.BRIDGE_PORT || "3456", 10),
   HOOK_TIMEOUT_SECONDS: parseInt(process.env.HOOK_TIMEOUT_SECONDS || "120", 10),
 };
